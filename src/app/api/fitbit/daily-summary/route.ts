@@ -1,14 +1,9 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
-import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 import { ApiResponse, DailySummary } from "@/types";
 import { FitbitAPI } from "@/lib/fitbit";
 
 const app = new Hono().basePath("/api/fitbit/daily-summary");
-
-app.use("*", cors());
-app.use("*", logger());
 
 app.get("/", async (c) => {
   try {
