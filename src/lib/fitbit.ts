@@ -1,5 +1,5 @@
 interface FitbitActivityData {
-  'activities-calories': Array<{
+  "activities-calories": Array<{
     dateTime: string;
     value: string;
   }>;
@@ -17,9 +17,13 @@ interface FitbitNutritionData {
 }
 
 interface FitbitWeightData {
-  'body-weight': Array<{
+  "body-weight": Array<{
     dateTime: string;
     value: string;
+  }>;
+  weight?: Array<{
+    date: string;
+    weight: number;
   }>;
 }
 
@@ -35,7 +39,7 @@ export class FitbitAPI {
       `https://api.fitbit.com/1/user/-/activities/calories/date/${date}/1d.json`,
       {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
       }
     );
@@ -45,7 +49,7 @@ export class FitbitAPI {
     }
 
     const data: FitbitActivityData = await response.json();
-    return parseInt(data['activities-calories'][0]?.value || '0');
+    return parseInt(data["activities-calories"][0]?.value || "0");
   }
 
   async getNutritionData(date: string): Promise<number> {
@@ -53,7 +57,7 @@ export class FitbitAPI {
       `https://api.fitbit.com/1/user/-/foods/log/date/${date}.json`,
       {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
       }
     );
@@ -71,7 +75,7 @@ export class FitbitAPI {
       `https://api.fitbit.com/1/user/-/body/log/weight/date/${date}.json`,
       {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
         },
       }
     );
@@ -81,6 +85,16 @@ export class FitbitAPI {
     }
 
     const data: FitbitWeightData = await response.json();
-    return parseFloat(data['body-weight'][0]?.value || '0');
+    
+    // Check both possible response formats
+    if (data["body-weight"] && data["body-weight"].length > 0) {
+      return parseFloat(data["body-weight"][0].value || "0");
+    }
+    
+    if (data.weight && data.weight.length > 0) {
+      return data.weight[0].weight || 0;
+    }
+    
+    return 0;
   }
 }
