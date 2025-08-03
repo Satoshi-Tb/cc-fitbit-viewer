@@ -4,6 +4,12 @@ import { FitbitAPI } from "@/lib/fitbit";
 // Mock the FitbitAPI
 jest.mock("@/lib/fitbit");
 
+interface MockFitbitInstance {
+  getActivityData: jest.Mock;
+  getNutritionData: jest.Mock;
+  getWeightData: jest.Mock;
+}
+
 describe("/api/fitbit/daily-summary", () => {
   const mockFitbitAPI = FitbitAPI as jest.MockedClass<typeof FitbitAPI>;
 
@@ -21,20 +27,20 @@ describe("/api/fitbit/daily-summary", () => {
     const mockNutritionData = 2000;
     const mockWeightData = 70.5;
 
-    const mockInstance = {
+    const mockInstance: MockFitbitInstance = {
       getActivityData: jest.fn().mockResolvedValue(mockActivityData),
       getNutritionData: jest.fn().mockResolvedValue(mockNutritionData),
       getWeightData: jest.fn().mockResolvedValue(mockWeightData),
     };
 
-    mockFitbitAPI.mockImplementation(() => mockInstance as any);
+    mockFitbitAPI.mockImplementation(
+      () => mockInstance as unknown as FitbitAPI
+    );
 
-    // Create a mock request
     const mockRequest = new Request(
       "http://localhost:3000/api/fitbit/daily-summary"
     );
-
-    const response = await GET();
+    const response = await GET(mockRequest);
     const responseData = await response.json();
 
     expect(response.status).toBe(200);
@@ -59,7 +65,7 @@ describe("/api/fitbit/daily-summary", () => {
   });
 
   it("should handle API errors gracefully", async () => {
-    const mockInstance = {
+    const mockInstance: MockFitbitInstance = {
       getActivityData: jest
         .fn()
         .mockRejectedValue(new Error("API rate limit exceeded")),
@@ -67,9 +73,14 @@ describe("/api/fitbit/daily-summary", () => {
       getWeightData: jest.fn().mockResolvedValue(0),
     };
 
-    mockFitbitAPI.mockImplementation(() => mockInstance as any);
+    mockFitbitAPI.mockImplementation(
+      () => mockInstance as unknown as FitbitAPI
+    );
 
-    const response = await GET();
+    const mockRequest = new Request(
+      "http://localhost:3000/api/fitbit/daily-summary"
+    );
+    const response = await GET(mockRequest);
     const responseData = await response.json();
 
     expect(response.status).toBe(500);
@@ -81,7 +92,7 @@ describe("/api/fitbit/daily-summary", () => {
   it("should handle partial data when some APIs fail", async () => {
     const mockActivityData = { caloriesOut: 2500, steps: 10000 };
 
-    const mockInstance = {
+    const mockInstance: MockFitbitInstance = {
       getActivityData: jest.fn().mockResolvedValue(mockActivityData),
       getNutritionData: jest
         .fn()
@@ -89,9 +100,14 @@ describe("/api/fitbit/daily-summary", () => {
       getWeightData: jest.fn().mockResolvedValue(70.5),
     };
 
-    mockFitbitAPI.mockImplementation(() => mockInstance as any);
+    mockFitbitAPI.mockImplementation(
+      () => mockInstance as unknown as FitbitAPI
+    );
 
-    const response = await GET();
+    const mockRequest = new Request(
+      "http://localhost:3000/api/fitbit/daily-summary"
+    );
+    const response = await GET(mockRequest);
     const responseData = await response.json();
 
     expect(response.status).toBe(500);
@@ -100,15 +116,20 @@ describe("/api/fitbit/daily-summary", () => {
   });
 
   it("should handle unknown errors", async () => {
-    const mockInstance = {
+    const mockInstance: MockFitbitInstance = {
       getActivityData: jest.fn().mockRejectedValue("Unknown error"),
       getNutritionData: jest.fn().mockResolvedValue(0),
       getWeightData: jest.fn().mockResolvedValue(0),
     };
 
-    mockFitbitAPI.mockImplementation(() => mockInstance as any);
+    mockFitbitAPI.mockImplementation(
+      () => mockInstance as unknown as FitbitAPI
+    );
 
-    const response = await GET();
+    const mockRequest = new Request(
+      "http://localhost:3000/api/fitbit/daily-summary"
+    );
+    const response = await GET(mockRequest);
     const responseData = await response.json();
 
     expect(response.status).toBe(500);
@@ -121,20 +142,27 @@ describe("/api/fitbit/daily-summary", () => {
     const mockNutritionData = 2000;
     const mockWeightData = 70.5;
 
-    const mockInstance = {
+    const mockInstance: MockFitbitInstance = {
       getActivityData: jest.fn().mockResolvedValue(mockActivityData),
       getNutritionData: jest.fn().mockResolvedValue(mockNutritionData),
       getWeightData: jest.fn().mockResolvedValue(mockWeightData),
     };
 
-    mockFitbitAPI.mockImplementation(() => mockInstance as any);
+    mockFitbitAPI.mockImplementation(
+      () => mockInstance as unknown as FitbitAPI
+    );
 
     // Mock Date to ensure consistent testing
     const mockDate = new Date("2024-01-15T10:30:00.000Z");
-    jest.spyOn(global, "Date").mockImplementation(() => mockDate as any);
+    jest
+      .spyOn(global, "Date")
+      .mockImplementation(() => mockDate as unknown as Date);
     Date.prototype.toISOString = jest.fn(() => "2024-01-15T10:30:00.000Z");
 
-    const response = await GET();
+    const mockRequest = new Request(
+      "http://localhost:3000/api/fitbit/daily-summary"
+    );
+    const response = await GET(mockRequest);
     const responseData = await response.json();
 
     expect(responseData.data.date).toBe("2024-01-15");
