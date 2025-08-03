@@ -1,8 +1,8 @@
 interface FitbitActivityData {
-  "activities-calories": Array<{
-    dateTime: string;
-    value: string;
-  }>;
+  summary: {
+    caloriesOut: number;
+    steps: number;
+  };
 }
 
 interface FitbitNutritionData {
@@ -34,9 +34,9 @@ export class FitbitAPI {
     this.accessToken = process.env.FITBIT_ACCESS_TOKEN!;
   }
 
-  async getActivityData(date: string): Promise<number> {
+  async getActivityData(date: string): Promise<{ caloriesOut: number; steps: number }> {
     const response = await fetch(
-      `https://api.fitbit.com/1/user/-/activities/calories/date/${date}/1d.json`,
+      `https://api.fitbit.com/1/user/-/activities/date/${date}.json`,
       {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
@@ -49,7 +49,10 @@ export class FitbitAPI {
     }
 
     const data: FitbitActivityData = await response.json();
-    return parseInt(data["activities-calories"][0]?.value || "0");
+    return {
+      caloriesOut: data.summary?.caloriesOut || 0,
+      steps: data.summary?.steps || 0,
+    };
   }
 
   async getNutritionData(date: string): Promise<number> {
