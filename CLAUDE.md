@@ -12,6 +12,7 @@ Cloudflare での Next.js アプリケーション自動デプロイ用のテン
 - **デプロイ**: Cloudflare Workers (@opennextjs/cloudflare)
 - **バンドラー**: Wrangler 4.25.0
 - **データフェッチ**: SWR + fetch API
+- **状態管理**: Jotai（グローバル状態）
 - **その他**: Hono 4.8.12
 
 ### プロジェクト構成
@@ -197,3 +198,104 @@ if (error) {
 - **dedupingInterval**: 60 秒（重複リクエスト防止）
 - **errorRetryCount**: 3 回（API 制限考慮）
 - **revalidateOnMount**: true（マウント時再検証）
+
+## 状態管理戦略
+
+### Jotai（グローバル状態管理）
+
+#### 技術選択理由
+
+- **アトミック設計**: 小さな状態単位での管理、不要な再レンダリング防止
+- **TypeScript 親和性**: 完全な型安全性と IntelliSense 対応
+- **ボイラープレート削減**: ミニマルな API と直感的な使用感
+- **React Suspense 対応**: 非同期状態の自然な統合
+
+#### 使用場面
+
+1. **ユーザー認証状態**: トークン、ユーザー情報
+2. **アプリケーション設定**: テーマ、言語、表示設定
+3. **フィルター状態**: トレンド期間選択、データ表示設定
+4. **通知・アラート状態**: エラーメッセージ、成功通知
+
+#### 実装パターン
+
+##### 1. Atom 定義
+
+```typescript
+// src/store/atoms.ts
+export const userAtom = atom<User | null>(null);
+export const themeAtom = atom<"light" | "dark">("light");
+export const trendPeriodAtom = atom<"week" | "month" | "year">("week");
+```
+
+##### 2. 派生状態（Derived Atoms）
+
+```typescript
+// 認証状態の派生
+export const isAuthenticatedAtom = atom((get) => !!get(userAtom));
+
+// フィルタリングされたデータ
+export const filteredDataAtom = atom((get) => {
+  const period = get(trendPeriodAtom);
+  const rawData = get(dataAtom);
+  return filterByPeriod(rawData, period);
+});
+```
+
+##### 3. 非同期 Atom
+
+```typescript
+// Health Planet取り込み状態
+export const healthPlanetImportAtom = atom(
+  null,
+  async (get, set, csvData: string) => {
+    set(importLoadingAtom, true);
+    try {
+      const result = await importHealthPlanetData(csvData);
+      set(importSuccessAtom, true);
+      return result;
+    } catch (error) {
+      set(importErrorAtom, error);
+    } finally {
+      set(importLoadingAtom, false);
+    }
+  }
+);
+```
+
+#### ベストプラクティス
+
+##### Atom の設計原則
+
+1. **単一責任**: 1 つの Atom は 1 つの関心事のみ
+2. **不変性**: Immer 使用またはスプレッド演算子での更新
+3. **型安全性**: 厳密な型定義の徹底
+4. **命名規則**: `{feature}Atom`形式での統一
+
+##### Provider 設定
+
+```typescript
+// src/app/layout.tsx
+import { Provider } from "jotai";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <Provider>{children}</Provider>
+      </body>
+    </html>
+  );
+}
+```
+
+##### ローカル状態との使い分け
+
+- **ローカル状態（useState）**: コンポーネント固有、一時的な状態
+- **Jotai**: 複数コンポーネント間共有、永続化が必要な状態
+- **SWR**: サーバーサイドデータのキャッシュ・同期
+
+##### パフォーマンス最適化
+
+- **Atom 分割**: 関連する状態をまとめすぎない
+- **選択的購読**: 必要な部分のみ監視
