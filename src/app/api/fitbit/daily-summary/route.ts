@@ -1,8 +1,16 @@
-import { NextResponse } from "next/server";
+import { Hono } from "hono";
+import { handle } from "hono/vercel";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
 import { ApiResponse, DailySummary } from "@/types";
 import { FitbitAPI } from "@/lib/fitbit";
 
-export async function GET(): Promise<NextResponse<ApiResponse<DailySummary>>> {
+const app = new Hono().basePath("/api/fitbit/daily-summary");
+
+app.use("*", cors());
+app.use("*", logger());
+
+app.get("/", async (c) => {
   try {
     const fitbitAPI = new FitbitAPI();
     const today = new Date().toISOString().split("T")[0];
@@ -22,21 +30,25 @@ export async function GET(): Promise<NextResponse<ApiResponse<DailySummary>>> {
       date: today,
     };
 
-    return NextResponse.json({
+    const response: ApiResponse<DailySummary> = {
       data: dailySummary,
       success: true,
-    });
+    };
+
+    return c.json(response);
   } catch (error) {
     console.error("Fitbit API error:", error);
-    return NextResponse.json(
-      {
-        data: {} as DailySummary,
-        success: false,
-        error: `Failed to fetch daily summary: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      },
-      { status: 500 }
-    );
+
+    const errorResponse: ApiResponse<DailySummary> = {
+      data: {} as DailySummary,
+      success: false,
+      error: `Failed to fetch daily summary: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+    };
+
+    return c.json(errorResponse, 500);
   }
-}
+});
+
+export const GET = handle(app);
