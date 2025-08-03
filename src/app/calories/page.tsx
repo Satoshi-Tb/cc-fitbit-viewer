@@ -76,25 +76,44 @@ export default function CaloriesPage() {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="text-sm font-medium text-gray-600 mb-2">平均消費カロリー</h3>
                   <p className="text-2xl font-bold text-red-600">
-                    {Math.round(data.reduce((sum, item) => sum + item.caloriesOut, 0) / data.length).toLocaleString()} kcal
+                    {(() => {
+                      const validData = data.filter(item => item.caloriesOut > 0);
+                      return validData.length > 0 
+                        ? Math.round(validData.reduce((sum, item) => sum + item.caloriesOut, 0) / validData.length).toLocaleString()
+                        : '0';
+                    })()} kcal
                   </p>
                 </div>
                 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="text-sm font-medium text-gray-600 mb-2">平均摂取カロリー</h3>
                   <p className="text-2xl font-bold text-blue-600">
-                    {Math.round(data.reduce((sum, item) => sum + item.caloriesIn, 0) / data.length).toLocaleString()} kcal
+                    {(() => {
+                      const validData = data.filter(item => item.caloriesIn > 0);
+                      return validData.length > 0 
+                        ? Math.round(validData.reduce((sum, item) => sum + item.caloriesIn, 0) / validData.length).toLocaleString()
+                        : '0';
+                    })()} kcal
                   </p>
                 </div>
                 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="text-sm font-medium text-gray-600 mb-2">平均カロリー差</h3>
                   <p className={`text-2xl font-bold ${
-                    data.reduce((sum, item) => sum + (item.caloriesOut - item.caloriesIn), 0) / data.length > 0 
-                      ? 'text-green-600' 
-                      : 'text-orange-600'
+                    (() => {
+                      const validData = data.filter(item => item.caloriesOut > 0 && item.caloriesIn > 0);
+                      const avgDiff = validData.length > 0 
+                        ? validData.reduce((sum, item) => sum + (item.caloriesOut - item.caloriesIn), 0) / validData.length
+                        : 0;
+                      return avgDiff > 0 ? 'text-green-600' : 'text-orange-600';
+                    })()
                   }`}>
-                    {Math.round(data.reduce((sum, item) => sum + (item.caloriesOut - item.caloriesIn), 0) / data.length).toLocaleString()} kcal
+                    {(() => {
+                      const validData = data.filter(item => item.caloriesOut > 0 && item.caloriesIn > 0);
+                      return validData.length > 0 
+                        ? Math.round(validData.reduce((sum, item) => sum + (item.caloriesOut - item.caloriesIn), 0) / validData.length).toLocaleString()
+                        : '0';
+                    })()} kcal
                   </p>
                 </div>
               </div>
