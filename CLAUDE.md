@@ -11,6 +11,7 @@ Cloudflare での Next.js アプリケーション自動デプロイ用のテン
 - **UI**: React 18 + Tailwind CSS
 - **デプロイ**: Cloudflare Workers (@opennextjs/cloudflare)
 - **バンドラー**: Wrangler 4.25.0
+- **データフェッチ**: SWR + fetch API
 - **その他**: Hono 4.8.12
 
 ### プロジェクト構成
@@ -131,3 +132,68 @@ cc-fitbit-app/
   - 単体テスト (`npm run test`)
   - E2E テスト (`npm run test:e2e`)
 - 全てのチェックをパスしてからコミット・デプロイを実行
+
+## データフェッチ戦略
+
+### SWR + fetch API
+
+#### 技術選択理由
+
+- **キャッシュ管理**: 自動的なデータキャッシュとバックグラウンド更新
+- **リアルタイム性**: フォーカス時の自動再検証
+- **UX 向上**: ローディング状態とエラー状態の統一管理
+- **パフォーマンス**: 重複リクエストの排除と最適化
+
+#### 実装パターン
+
+##### 1. カスタムフック作成
+
+```typescript
+// src/hooks/useFitbitData.ts
+export function useFitbitData(endpoint: string) {
+  return useSWR(`/api/fitbit/${endpoint}`, fetcher, {
+    refreshInterval: 300000, // 5分間隔で自動更新
+    revalidateOnFocus: true,
+    dedupingInterval: 60000,
+  });
+}
+```
+
+##### 2. API Routes との連携
+
+```typescript
+// src/app/api/fitbit/[...path]/route.ts
+export async function GET(request: Request) {
+  // Fitbit API呼び出し + エラーハンドリング
+}
+```
+
+#### ベストプラクティス
+
+##### データフェッチルール
+
+1. **統一的な fetcher 関数**: エラーハンドリングと認証ヘッダーを含む
+2. **適切なキー設計**: `['fitbit', endpoint, params]`形式
+3. **条件付きフェッチ**: ユーザー認証状態に基づく制御
+4. **楽観的更新**: mutate を使用した即座の UI 反映
+
+##### キャッシュ戦略
+
+- リアルタイム性を求めないため、自動更新は不要
+
+##### エラーハンドリング
+
+```typescript
+const { data, error, isLoading, mutate } = useFitbitData("activities/steps");
+
+if (error) {
+  // APIエラー、ネットワークエラーの統一処理
+  return <ErrorBoundary error={error} retry={() => mutate()} />;
+}
+```
+
+#### 設定値
+
+- **dedupingInterval**: 60 秒（重複リクエスト防止）
+- **errorRetryCount**: 3 回（API 制限考慮）
+- **revalidateOnMount**: true（マウント時再検証）
