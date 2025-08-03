@@ -89,7 +89,6 @@ cc-fitbit-app/
 - `npm run test:watch` - テストのウォッチモード
 - `npm run test:coverage` - カバレッジレポート生成
 - `npm run test:e2e` - Playwright による E2E テスト実行
-- `npm run test:e2e:ui` - Playwright の UI モードでテスト実行
 
 ### 単体テスト指針
 
@@ -121,3 +120,14 @@ cc-fitbit-app/
 3. **データ分離**: テストデータは本番データと完全分離
 4. **非同期処理**: `waitFor`、`findBy`を使用した適切な待機
 5. **アクセシビリティ**: `getByRole`、`getByLabelText`を優先使用
+
+## 開発戦略
+
+### 品質保証
+
+- **機能追加・修正時の必須チェック**:
+  - タイプチェック (`npm run type-check`)
+  - ビルド (`npm run build`)
+  - 単体テスト (`npm run test`)
+  - E2E テスト (`npm run test:e2e`)
+- 全てのチェックをパスしてからコミット・デプロイを実行
