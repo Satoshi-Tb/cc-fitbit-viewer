@@ -195,9 +195,8 @@ if (error) {
 
 #### 設定値
 
-- **dedupingInterval**: 60 秒（重複リクエスト防止）
 - **errorRetryCount**: 3 回（API 制限考慮）
-- **revalidateOnMount**: true（マウント時再検証）
+- **errorRetryInterval**: 5000
 
 ## 状態管理戦略
 
