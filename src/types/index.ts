@@ -36,6 +36,11 @@ export interface CalorieData {
   caloriesIn: number;
 }
 
+export interface FitbitTimeSeriesItem {
+  dateTime: string;
+  value: string;
+}
+
 export interface CalorieChartProps {
   data: CalorieData[];
   period: 'week' | 'month';
