@@ -1,28 +1,38 @@
 import { NextResponse } from 'next/server';
 import { ApiResponse, DailySummary } from '@/types';
+import { FitbitAPI } from '@/lib/fitbit';
 
 export async function GET(): Promise<NextResponse<ApiResponse<DailySummary>>> {
   try {
+    const fitbitAPI = new FitbitAPI();
     const today = new Date().toISOString().split('T')[0];
     
-    const mockData: DailySummary = {
-      caloriesBurned: 2150,
-      caloriesConsumed: 1800,
-      weight: 70.5,
-      steps: 8500,
+    // Fetch real data from Fitbit API
+    const [caloriesBurned, caloriesConsumed, weight] = await Promise.all([
+      fitbitAPI.getActivityData(today),
+      fitbitAPI.getNutritionData(today),
+      fitbitAPI.getWeightData(today),
+    ]);
+
+    const dailySummary: DailySummary = {
+      caloriesBurned,
+      caloriesConsumed,
+      weight,
+      steps: 8500, // Dummy data as requested
       date: today,
     };
 
     return NextResponse.json({
-      data: mockData,
+      data: dailySummary,
       success: true,
     });
-  } catch {
+  } catch (error) {
+    console.error('Fitbit API error:', error);
     return NextResponse.json(
       {
         data: {} as DailySummary,
         success: false,
-        error: 'Failed to fetch daily summary',
+        error: `Failed to fetch daily summary: ${error instanceof Error ? error.message : 'Unknown error'}`,
       },
       { status: 500 }
     );
