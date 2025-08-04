@@ -6,6 +6,7 @@ jest.mock("@/lib/fitbit");
 
 interface MockFitbitInstance {
   getCaloriesTimeSeries: jest.Mock;
+  getCaloriesAndWeightTimeSeries: jest.Mock;
 }
 
 describe("/api/fitbit/calories", () => {
@@ -29,6 +30,7 @@ describe("/api/fitbit/calories", () => {
 
     const mockInstance: MockFitbitInstance = {
       getCaloriesTimeSeries: jest.fn().mockResolvedValue(mockData),
+      getCaloriesAndWeightTimeSeries: jest.fn().mockResolvedValue(mockData),
     };
 
     mockFitbitAPI.mockImplementation(
@@ -45,7 +47,7 @@ describe("/api/fitbit/calories", () => {
     expect(responseData.success).toBe(true);
     expect(responseData.data).toEqual(mockData);
 
-    expect(mockInstance.getCaloriesTimeSeries).toHaveBeenCalledWith(
+    expect(mockInstance.getCaloriesAndWeightTimeSeries).toHaveBeenCalledWith(
       "2024-06-24",
       "2024-06-30"
     );
@@ -59,6 +61,7 @@ describe("/api/fitbit/calories", () => {
 
     const mockInstance: MockFitbitInstance = {
       getCaloriesTimeSeries: jest.fn().mockResolvedValue(mockData),
+      getCaloriesAndWeightTimeSeries: jest.fn().mockResolvedValue(mockData),
     };
 
     mockFitbitAPI.mockImplementation(
@@ -75,7 +78,7 @@ describe("/api/fitbit/calories", () => {
     expect(responseData.success).toBe(true);
     expect(responseData.data).toEqual(mockData);
 
-    expect(mockInstance.getCaloriesTimeSeries).toHaveBeenCalledWith(
+    expect(mockInstance.getCaloriesAndWeightTimeSeries).toHaveBeenCalledWith(
       "2024-06-01",
       "2024-06-30"
     );
@@ -84,6 +87,9 @@ describe("/api/fitbit/calories", () => {
   it("should handle API errors gracefully", async () => {
     const mockInstance: MockFitbitInstance = {
       getCaloriesTimeSeries: jest
+        .fn()
+        .mockRejectedValue(new Error("Failed to fetch activities time series: Unauthorized")),
+      getCaloriesAndWeightTimeSeries: jest
         .fn()
         .mockRejectedValue(new Error("Failed to fetch activities time series: Unauthorized")),
     };
@@ -111,6 +117,7 @@ describe("/api/fitbit/calories", () => {
 
     const mockInstance: MockFitbitInstance = {
       getCaloriesTimeSeries: jest.fn().mockResolvedValue(mockData),
+      getCaloriesAndWeightTimeSeries: jest.fn().mockResolvedValue(mockData),
     };
 
     mockFitbitAPI.mockImplementation(
@@ -127,8 +134,8 @@ describe("/api/fitbit/calories", () => {
     expect(responseData.success).toBe(true);
     expect(responseData.data).toEqual(mockData);
 
-    // Verify that getCaloriesTimeSeries was called with date range for week (7 days)
-    const [startDate, endDate] = mockInstance.getCaloriesTimeSeries.mock.calls[0];
+    // Verify that getCaloriesAndWeightTimeSeries was called with date range for week (7 days)
+    const [startDate, endDate] = mockInstance.getCaloriesAndWeightTimeSeries.mock.calls[0];
     const start = new Date(startDate);
     const end = new Date(endDate);
     const daysDiff = Math.floor(
@@ -140,6 +147,7 @@ describe("/api/fitbit/calories", () => {
   it("should return empty data when no calories found", async () => {
     const mockInstance: MockFitbitInstance = {
       getCaloriesTimeSeries: jest.fn().mockResolvedValue([]),
+      getCaloriesAndWeightTimeSeries: jest.fn().mockResolvedValue([]),
     };
 
     mockFitbitAPI.mockImplementation(
@@ -160,6 +168,7 @@ describe("/api/fitbit/calories", () => {
   it("should handle unknown errors", async () => {
     const mockInstance: MockFitbitInstance = {
       getCaloriesTimeSeries: jest.fn().mockRejectedValue("Unknown error type"),
+      getCaloriesAndWeightTimeSeries: jest.fn().mockRejectedValue("Unknown error type"),
     };
 
     mockFitbitAPI.mockImplementation(

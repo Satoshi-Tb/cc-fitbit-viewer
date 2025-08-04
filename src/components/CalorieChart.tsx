@@ -22,6 +22,8 @@ export default function CalorieChart({ data, period }: CalorieChartProps) {
     });
   };
 
+  const hasWeightData = data.some(item => item.weight !== undefined && item.weight > 0);
+
   const chartData = data.map(item => ({
     ...item,
     formattedDate: formatDate(item.date)
@@ -34,7 +36,7 @@ export default function CalorieChart({ data, period }: CalorieChartProps) {
           data={chartData}
           margin={{
             top: 20,
-            right: 30,
+            right: hasWeightData ? 80 : 30,
             left: 20,
             bottom: 20,
           }}
@@ -47,11 +49,22 @@ export default function CalorieChart({ data, period }: CalorieChartProps) {
             tickLine={{ stroke: '#ccc' }}
           />
           <YAxis 
+            yAxisId="calories"
             tick={{ fontSize: 12 }}
             axisLine={{ stroke: '#ccc' }}
             tickLine={{ stroke: '#ccc' }}
             label={{ value: 'カロリー (kcal)', angle: -90, position: 'insideLeft' }}
           />
+          {hasWeightData && (
+            <YAxis 
+              yAxisId="weight"
+              orientation="right"
+              tick={{ fontSize: 12 }}
+              axisLine={{ stroke: '#ccc' }}
+              tickLine={{ stroke: '#ccc' }}
+              label={{ value: '体重 (kg)', angle: 90, position: 'insideRight' }}
+            />
+          )}
           <Tooltip 
             labelFormatter={(value, payload) => {
               if (payload && payload.length > 0) {
@@ -59,10 +72,15 @@ export default function CalorieChart({ data, period }: CalorieChartProps) {
               }
               return value;
             }}
-            formatter={(value: number, name: string) => [
-              `${value.toLocaleString()} kcal`,
-              name === 'caloriesOut' ? '消費カロリー' : '摂取カロリー'
-            ]}
+            formatter={(value: number, name: string) => {
+              if (name === 'weight') {
+                return [`${value} kg`, '体重'];
+              }
+              return [
+                `${value.toLocaleString()} kcal`,
+                name === 'caloriesOut' ? '消費カロリー' : '摂取カロリー'
+              ];
+            }}
             contentStyle={{
               backgroundColor: '#fff',
               border: '1px solid #ccc',
@@ -71,9 +89,13 @@ export default function CalorieChart({ data, period }: CalorieChartProps) {
             }}
           />
           <Legend 
-            formatter={(value) => value === 'caloriesOut' ? '消費カロリー' : '摂取カロリー'}
+            formatter={(value) => {
+              if (value === 'weight') return '体重';
+              return value === 'caloriesOut' ? '消費カロリー' : '摂取カロリー';
+            }}
           />
           <Line 
+            yAxisId="calories"
             type="monotone" 
             dataKey="caloriesOut" 
             stroke="#ef4444" 
@@ -82,6 +104,7 @@ export default function CalorieChart({ data, period }: CalorieChartProps) {
             activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2 }}
           />
           <Line 
+            yAxisId="calories"
             type="monotone" 
             dataKey="caloriesIn" 
             stroke="#3b82f6" 
@@ -89,6 +112,18 @@ export default function CalorieChart({ data, period }: CalorieChartProps) {
             dot={{ fill: '#3b82f6', r: 4 }}
             activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
           />
+          {hasWeightData && (
+            <Line 
+              yAxisId="weight"
+              type="monotone" 
+              dataKey="weight" 
+              stroke="#10b981" 
+              strokeWidth={2}
+              dot={{ fill: '#10b981', r: 3 }}
+              activeDot={{ r: 5, stroke: '#10b981', strokeWidth: 2 }}
+              connectNulls={false}
+            />
+          )}
         </LineChart>
       </ResponsiveContainer>
     </div>
