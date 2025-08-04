@@ -9,6 +9,7 @@ Cloudflare での Next.js アプリケーション自動デプロイ用のテン
 - **フレームワーク**: Next.js 14.2.31
 - **言語**: TypeScript
 - **UI**: React 18 + Tailwind CSS
+- **チャート**: Recharts 3.1.0（データ可視化）
 - **デプロイ**: Cloudflare Workers (@opennextjs/cloudflare)
 - **バンドラー**: Wrangler 4.25.0
 - **データフェッチ**: SWR + fetch API
@@ -20,13 +21,24 @@ Cloudflare での Next.js アプリケーション自動デプロイ用のテン
 ```
 cc-fitbit-app/
 ├── src/
-│   └── app/                    # Next.js App Router
-│       ├── api/               # API Routes
-│       │   └── hello/         # サンプルAPIエンドポイント
-│       ├── layout.tsx         # ルートレイアウト
-│       ├── page.tsx          # ホームページ
-│       ├── globals.css       # グローバルスタイル
-│       └── favicon.ico
+│   ├── app/                    # Next.js App Router
+│   │   ├── api/               # API Routes (Hono)
+│   │   │   ├── fitbit/        # Fitbit API統合
+│   │   │   │   ├── calories/  # カロリーと体重データ API
+│   │   │   │   └── daily-summary/ # 日次サマリー API
+│   │   │   └── hello/         # サンプルAPIエンドポイント
+│   │   ├── calories/          # カロリー可視化ページ
+│   │   ├── layout.tsx         # ルートレイアウト
+│   │   ├── page.tsx          # ホームページ
+│   │   ├── globals.css       # グローバルスタイル
+│   │   └── favicon.ico
+│   ├── components/            # Reactコンポーネント
+│   │   ├── CalorieChart.tsx  # デュアル軸チャート（カロリー+体重）
+│   │   └── PeriodSelector.tsx # 期間選択UI
+│   ├── hooks/                 # カスタムフック
+│   ├── lib/                   # ユーティリティ
+│   │   └── fitbit.ts         # Fitbit API クライアント
+│   └── types/                 # TypeScript型定義
 ├── wrangler.jsonc            # Cloudflare Workers設定
 ├── open-next.config.ts       # OpenNext Cloudflare設定
 ├── next.config.mjs          # Next.js設定
@@ -76,6 +88,25 @@ cc-fitbit-app/
 ### API エンドポイント
 
 - `/api/hello` - サンプル API ルート（`src/app/api/hello/route.ts`）
+- `/api/fitbit/daily-summary` - Fitbit 日次サマリー API（Hono）
+- `/api/fitbit/calories` - カロリー・体重時系列データ API（Hono）
+
+### 実装済み機能
+
+#### カロリー・体重可視化機能
+
+- **ページURL**: `/calories`
+- **実装ブランチ**: `feature/calorie-chart`, `feature/weight-trend-chart`
+- **機能概要**:
+  - 消費カロリーと摂取カロリーの折れ線グラフ表示
+  - 体重推移の重ね合わせ表示（右軸スケール）
+  - 期間選択機能（1週間/1ヶ月）
+  - デュアル軸チャート（カロリー左軸、体重右軸）
+- **技術仕様**:
+  - **チャートライブラリ**: Recharts
+  - **API最適化**: Time Series API使用によりAPI呼び出し数を大幅削減（14回→2回）
+  - **データ統合**: カロリーと体重データの統合取得
+  - **条件付き表示**: 体重データ存在時のみ右軸表示
 
 ## テスト戦略
 
@@ -298,3 +329,69 @@ export default function RootLayout({ children }) {
 
 - **Atom 分割**: 関連する状態をまとめすぎない
 - **選択的購読**: 必要な部分のみ監視
+
+## Fitbit API 統合戦略
+
+### API設計原則
+
+#### 1. Time Series API の活用
+
+- **目的**: API呼び出し回数の最小化とパフォーマンス向上
+- **実装**: 日別個別取得から期間一括取得への移行
+- **効果**: 週次データ取得で14回→2回に削減
+
+#### 2. データ統合パターン
+
+```typescript
+// 統合取得メソッドの実装例
+async getCaloriesAndWeightTimeSeries(startDate: string, endDate: string) {
+  const [caloriesData, weightData] = await Promise.all([
+    this.getCaloriesTimeSeries(startDate, endDate),
+    this.getWeightTimeSeries(startDate, endDate)
+  ]);
+  
+  // データマージング処理
+  return mergeDataByDate(caloriesData, weightData);
+}
+```
+
+#### 3. API レスポンス型定義
+
+- **厳密な型定義**: Fitbit API仕様に基づく正確な型定義
+- **レスポンス形式**: 各APIエンドポイントの実際のレスポンス構造を反映
+- **エラーハンドリング**: 一貫したエラーレスポンス形式
+
+### API エンドポイント詳細
+
+#### `/api/fitbit/calories`
+
+- **データソース**: Fitbit Activities API + Foods Log API + Body Weight API
+- **取得データ**: 消費カロリー、摂取カロリー、体重（オプション）
+- **期間指定**: week（7日間）/ month（30日間）
+- **API実装**: Hono フレームワーク使用
+
+#### Fitbit API Rate Limiting 対策
+
+- **Time Series API**: 複数日分データの一括取得
+- **並列処理**: Promise.all による同時実行
+- **エラーハンドリング**: Rate Limit エラーの適切な処理
+
+### 開発プロセス改善
+
+#### ブランチ戦略
+
+- **機能ブランチ**: `feature/{機能名}-{詳細}`
+- **段階的実装**: 機能を小さな単位に分割して実装
+- **テスト駆動**: 各実装段階でのテスト作成・実行
+
+#### 品質保証プロセス
+
+1. **TypeScript型チェック**: `npm run type-check`
+2. **ビルド検証**: `npm run build`
+3. **テスト実行**: `npm run test`
+
+#### API開発における重要ポイント
+
+- **テストファーストアプローチ**: API実装前のテストケース作成
+- **モック戦略**: FitbitAPI クラスの適切なモック化
+- **エラーケーステスト**: APIエラー、ネットワークエラーの網羅的テスト
