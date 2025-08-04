@@ -6,18 +6,26 @@ import CalorieChart from '@/components/CalorieChart';
 import WeightTrendChart from '@/components/WeightTrendChart';
 import PeriodSelector from '@/components/PeriodSelector';
 import ExtendedPeriodSelector from '@/components/ExtendedPeriodSelector';
+import CSVImport from '@/components/CSVImport';
 import { SkeletonLoader } from '@/components/SkeletonLoader';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useCalorieData } from '@/hooks/useCalorieData';
 import { useWeightData } from '@/hooks/useWeightData';
 
 export default function CaloriesPage() {
-  const [activeTab, setActiveTab] = useState<'calories' | 'weight'>('calories');
+  const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'import'>('calories');
   const [caloriePeriod, setCaloriePeriod] = useState<'week' | 'month'>('week');
   const [weightPeriod, setWeightPeriod] = useState<string>('1m');
   
   const { data: calorieData, error: calorieError, isLoading: calorieLoading, mutate: calorieRetry } = useCalorieData(caloriePeriod);
   const { data: weightData, error: weightError, isLoading: weightLoading, mutate: weightRetry } = useWeightData(weightPeriod);
+
+  const handleImportComplete = (result: { success: boolean }) => {
+    if (result.success) {
+      // Refresh weight data after successful import
+      weightRetry();
+    }
+  };
   
   const currentError = activeTab === 'calories' ? calorieError : weightError;
   const currentLoading = activeTab === 'calories' ? calorieLoading : weightLoading;
@@ -95,19 +103,36 @@ export default function CaloriesPage() {
             >
               体重トレンド
             </button>
+            <button
+              onClick={() => setActiveTab('import')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'import'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              CSV取り込み
+            </button>
           </div>
         </div>
         
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="mb-6">
-            {activeTab === 'calories' ? (
-              <PeriodSelector period={caloriePeriod} onPeriodChange={setCaloriePeriod} />
-            ) : (
-              <ExtendedPeriodSelector period={weightPeriod} onPeriodChange={setWeightPeriod} />
-            )}
-          </div>
+          {activeTab !== 'import' && (
+            <div className="mb-6">
+              {activeTab === 'calories' ? (
+                <PeriodSelector period={caloriePeriod} onPeriodChange={setCaloriePeriod} />
+              ) : (
+                <ExtendedPeriodSelector period={weightPeriod} onPeriodChange={setWeightPeriod} />
+              )}
+            </div>
+          )}
           
-          {currentLoading ? (
+          {activeTab === 'import' ? (
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">体重・体脂肪データ取り込み</h2>
+              <CSVImport onImportComplete={handleImportComplete} />
+            </div>
+          ) : currentLoading ? (
             <SkeletonLoader />
           ) : (
             <div>
