@@ -1,5 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { FitbitAPI } from '@/lib/fitbit';
+import { Hono } from "hono";
+import { handle } from "hono/vercel";
+import { ApiResponse, CalorieData } from "@/types";
+import { FitbitAPI } from "@/lib/fitbit";
+
+const app = new Hono().basePath("/api/fitbit/calories");
 
 function getDateRange(period: 'week' | 'month', endDate?: string): { startDate: string; endDate: string } {
   const end = endDate ? new Date(endDate) : new Date();
@@ -14,30 +18,33 @@ function getDateRange(period: 'week' | 'month', endDate?: string): { startDate: 
   };
 }
 
-export async function GET(request: NextRequest) {
+app.get("/", async (c) => {
   try {
-    const { searchParams } = new URL(request.url);
-    const period = (searchParams.get('period') as 'week' | 'month') || 'week';
-    const endDateParam = searchParams.get('endDate');
+    const period = (c.req.query('period') as 'week' | 'month') || 'week';
+    const endDateParam = c.req.query('endDate');
 
     const fitbitAPI = new FitbitAPI();
     const { startDate, endDate } = getDateRange(period, endDateParam || undefined);
     
     const calorieData = await fitbitAPI.getCaloriesTimeSeries(startDate, endDate);
 
-    return NextResponse.json({
+    const response: ApiResponse<CalorieData[]> = {
       data: calorieData,
       success: true
-    });
+    };
+
+    return c.json(response);
   } catch (error) {
     console.error('Error in calories API:', error);
-    return NextResponse.json(
-      {
-        data: [],
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+
+    const errorResponse: ApiResponse<CalorieData[]> = {
+      data: [],
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+
+    return c.json(errorResponse, 500);
   }
-}
+});
+
+export const GET = handle(app);

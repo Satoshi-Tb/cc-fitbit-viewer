@@ -210,4 +210,186 @@ describe("FitbitAPI", () => {
       );
     });
   });
+
+  describe("getCaloriesTimeSeries", () => {
+    it("should return time series data for calories out and in", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [
+          { dateTime: "2024-01-01", value: "2500" },
+          { dateTime: "2024-01-02", value: "2300" },
+          { dateTime: "2024-01-03", value: "2700" },
+        ],
+      };
+
+      const mockNutritionResponse = {
+        "foods-log-caloriesIn": [
+          { dateTime: "2024-01-01", value: "2000" },
+          { dateTime: "2024-01-02", value: "1800" },
+          { dateTime: "2024-01-03", value: "2200" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNutritionResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getCaloriesTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", caloriesOut: 2500, caloriesIn: 2000 },
+        { date: "2024-01-02", caloriesOut: 2300, caloriesIn: 1800 },
+        { date: "2024-01-03", caloriesOut: 2700, caloriesIn: 2200 },
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        "https://api.fitbit.com/1/user/-/activities/calories/date/2024-01-01/2024-01-03.json",
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        }
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        "https://api.fitbit.com/1/user/-/foods/log/caloriesIn/date/2024-01-01/2024-01-03.json",
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        }
+      );
+    });
+
+    it("should handle missing data points", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [
+          { dateTime: "2024-01-01", value: "2500" },
+          { dateTime: "2024-01-03", value: "2700" },
+        ],
+      };
+
+      const mockNutritionResponse = {
+        "foods-log-caloriesIn": [
+          { dateTime: "2024-01-02", value: "1800" },
+          { dateTime: "2024-01-03", value: "2200" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNutritionResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getCaloriesTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", caloriesOut: 2500, caloriesIn: 0 },
+        { date: "2024-01-02", caloriesOut: 0, caloriesIn: 1800 },
+        { date: "2024-01-03", caloriesOut: 2700, caloriesIn: 2200 },
+      ]);
+    });
+
+    it("should handle invalid values by converting to 0", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [
+          { dateTime: "2024-01-01", value: "invalid" },
+          { dateTime: "2024-01-02", value: "" },
+        ],
+      };
+
+      const mockNutritionResponse = {
+        "foods-log-caloriesIn": [
+          { dateTime: "2024-01-01", value: "abc" },
+          { dateTime: "2024-01-02", value: "1800" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNutritionResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getCaloriesTimeSeries("2024-01-01", "2024-01-02");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", caloriesOut: 0, caloriesIn: 0 },
+        { date: "2024-01-02", caloriesOut: 0, caloriesIn: 1800 },
+      ]);
+    });
+
+    it("should throw error when activities API call fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        statusText: "Unauthorized",
+      } as Response);
+
+      await expect(
+        fitbitAPI.getCaloriesTimeSeries("2024-01-01", "2024-01-03")
+      ).rejects.toThrow("Failed to fetch activities time series: Unauthorized");
+    });
+
+    it("should throw error when nutrition API call fails", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [
+          { dateTime: "2024-01-01", value: "2500" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: false,
+          statusText: "Bad Request",
+        } as Response);
+
+      await expect(
+        fitbitAPI.getCaloriesTimeSeries("2024-01-01", "2024-01-03")
+      ).rejects.toThrow("Failed to fetch nutrition time series: Bad Request");
+    });
+
+    it("should return empty array when both APIs return empty data", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [],
+      };
+
+      const mockNutritionResponse = {
+        "foods-log-caloriesIn": [],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNutritionResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getCaloriesTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([]);
+    });
+  });
 });
