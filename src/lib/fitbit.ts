@@ -28,14 +28,9 @@ interface FitbitWeightData {
 }
 
 interface FitbitWeightTimeSeriesData {
-  weight: Array<{
-    bmi: number;
-    date: string;
-    fat: number;
-    logId: number;
-    source: string;
-    time: string;
-    weight: number;
+  "body-weight": Array<{
+    dateTime: string;
+    value: string;
   }>;
 }
 
@@ -136,7 +131,7 @@ export class FitbitAPI {
 
   async getWeightTimeSeries(startDate: string, endDate: string): Promise<Array<{ date: string; weight: number }>> {
     const response = await fetch(
-      `https://api.fitbit.com/1/user/-/body/log/weight/date/${startDate}/${endDate}.json`,
+      `https://api.fitbit.com/1/user/-/body/weight/date/${startDate}/${endDate}.json`,
       {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
@@ -150,9 +145,9 @@ export class FitbitAPI {
 
     const data: FitbitWeightTimeSeriesData = await response.json();
 
-    return data.weight.map(item => ({
-      date: item.date,
-      weight: item.weight || 0
+    return data["body-weight"].map(item => ({
+      date: item.dateTime,
+      weight: parseFloat(item.value) || 0
     })).sort((a, b) => a.date.localeCompare(b.date));
   }
 
