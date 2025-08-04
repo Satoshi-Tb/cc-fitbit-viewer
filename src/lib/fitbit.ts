@@ -28,14 +28,16 @@ interface FitbitWeightData {
 }
 
 interface FitbitWeightTimeSeriesData {
-  weight: Array<{
-    bmi: number;
-    date: string;
-    fat: number;
-    logId: number;
-    source: string;
-    time: string;
-    weight: number;
+  "body-weight": Array<{
+    dateTime: string;
+    value: string;
+  }>;
+}
+
+interface FitbitBodyFatData {
+  "body-fat": Array<{
+    dateTime: string;
+    value: string;
   }>;
 }
 
@@ -129,7 +131,7 @@ export class FitbitAPI {
 
   async getWeightTimeSeries(startDate: string, endDate: string): Promise<Array<{ date: string; weight: number }>> {
     const response = await fetch(
-      `https://api.fitbit.com/1/user/-/body/log/weight/date/${startDate}/${endDate}.json`,
+      `https://api.fitbit.com/1/user/-/body/weight/date/${startDate}/${endDate}.json`,
       {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
@@ -143,9 +145,9 @@ export class FitbitAPI {
 
     const data: FitbitWeightTimeSeriesData = await response.json();
 
-    return data.weight.map(item => ({
-      date: item.date,
-      weight: item.weight || 0
+    return data["body-weight"].map(item => ({
+      date: item.dateTime,
+      weight: parseFloat(item.value) || 0
     })).sort((a, b) => a.date.localeCompare(b.date));
   }
 
@@ -224,5 +226,55 @@ export class FitbitAPI {
       ...item,
       weight: weightMap.get(item.date)
     }));
+  }
+
+  async getBodyFatTimeSeries(startDate: string, endDate: string): Promise<Array<{ date: string; bodyFat: number }>> {
+    const response = await fetch(
+      `https://api.fitbit.com/1/user/-/body/fat/date/${startDate}/${endDate}.json`,
+      {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch body fat time series: ${response.statusText}`);
+    }
+
+    const data: FitbitBodyFatData = await response.json();
+
+    return data["body-fat"].map(item => ({
+      date: item.dateTime,
+      bodyFat: parseFloat(item.value) || 0
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async getWeightAndBodyFatTimeSeries(startDate: string, endDate: string): Promise<Array<{ date: string; weight?: number; bodyFat?: number }>> {
+    const [weightData, bodyFatData] = await Promise.all([
+      this.getWeightTimeSeries(startDate, endDate),
+      this.getBodyFatTimeSeries(startDate, endDate)
+    ]);
+
+    const weightMap = new Map(
+      weightData.map(item => [item.date, item.weight])
+    );
+
+    const bodyFatMap = new Map(
+      bodyFatData.map(item => [item.date, item.bodyFat])
+    );
+
+    const allDates = new Set([
+      ...weightData.map(item => item.date),
+      ...bodyFatData.map(item => item.date)
+    ]);
+
+    return Array.from(allDates)
+      .sort()
+      .map(date => ({
+        date,
+        weight: weightMap.get(date),
+        bodyFat: bodyFatMap.get(date)
+      }));
   }
 }
