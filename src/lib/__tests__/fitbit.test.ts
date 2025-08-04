@@ -392,4 +392,504 @@ describe("FitbitAPI", () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe("getWeightTimeSeries", () => {
+    it("should return weight time series data", async () => {
+      const mockResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-01", value: "70.5" },
+          { dateTime: "2024-01-02", value: "70.2" },
+          { dateTime: "2024-01-03", value: "69.8" },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getWeightTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", weight: 70.5 },
+        { date: "2024-01-02", weight: 70.2 },
+        { date: "2024-01-03", weight: 69.8 },
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.fitbit.com/1/user/-/body/weight/date/2024-01-01/2024-01-03.json",
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        }
+      );
+    });
+
+    it("should handle invalid weight values by converting to 0", async () => {
+      const mockResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-01", value: "invalid" },
+          { dateTime: "2024-01-02", value: "" },
+          { dateTime: "2024-01-03", value: "69.8" },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getWeightTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", weight: 0 },
+        { date: "2024-01-02", weight: 0 },
+        { date: "2024-01-03", weight: 69.8 },
+      ]);
+    });
+
+    it("should return empty array when no weight data available", async () => {
+      const mockResponse = {
+        "body-weight": [],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getWeightTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([]);
+    });
+
+    it("should sort results by date", async () => {
+      const mockResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-03", value: "69.8" },
+          { dateTime: "2024-01-01", value: "70.5" },
+          { dateTime: "2024-01-02", value: "70.2" },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getWeightTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", weight: 70.5 },
+        { date: "2024-01-02", weight: 70.2 },
+        { date: "2024-01-03", weight: 69.8 },
+      ]);
+    });
+
+    it("should throw error when API call fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        statusText: "Unauthorized",
+      } as Response);
+
+      await expect(
+        fitbitAPI.getWeightTimeSeries("2024-01-01", "2024-01-03")
+      ).rejects.toThrow("Failed to fetch weight time series: Unauthorized");
+    });
+  });
+
+  describe("getCaloriesAndWeightTimeSeries", () => {
+    it("should return combined calories and weight data", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [
+          { dateTime: "2024-01-01", value: "2500" },
+          { dateTime: "2024-01-02", value: "2300" },
+        ],
+      };
+
+      const mockNutritionResponse = {
+        "foods-log-caloriesIn": [
+          { dateTime: "2024-01-01", value: "2000" },
+          { dateTime: "2024-01-02", value: "1800" },
+        ],
+      };
+
+      const mockWeightResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-01", value: "70.5" },
+          { dateTime: "2024-01-02", value: "70.2" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNutritionResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getCaloriesAndWeightTimeSeries("2024-01-01", "2024-01-02");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", caloriesOut: 2500, caloriesIn: 2000, weight: 70.5 },
+        { date: "2024-01-02", caloriesOut: 2300, caloriesIn: 1800, weight: 70.2 },
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should handle missing weight data", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [
+          { dateTime: "2024-01-01", value: "2500" },
+          { dateTime: "2024-01-02", value: "2300" },
+        ],
+      };
+
+      const mockNutritionResponse = {
+        "foods-log-caloriesIn": [
+          { dateTime: "2024-01-01", value: "2000" },
+          { dateTime: "2024-01-02", value: "1800" },
+        ],
+      };
+
+      const mockWeightResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-01", value: "70.5" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNutritionResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getCaloriesAndWeightTimeSeries("2024-01-01", "2024-01-02");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", caloriesOut: 2500, caloriesIn: 2000, weight: 70.5 },
+        { date: "2024-01-02", caloriesOut: 2300, caloriesIn: 1800, weight: undefined },
+      ]);
+    });
+
+    it("should handle empty weight data", async () => {
+      const mockActivitiesResponse = {
+        "activities-calories": [
+          { dateTime: "2024-01-01", value: "2500" },
+        ],
+      };
+
+      const mockNutritionResponse = {
+        "foods-log-caloriesIn": [
+          { dateTime: "2024-01-01", value: "2000" },
+        ],
+      };
+
+      const mockWeightResponse = {
+        "body-weight": [],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockActivitiesResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNutritionResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getCaloriesAndWeightTimeSeries("2024-01-01", "2024-01-01");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", caloriesOut: 2500, caloriesIn: 2000, weight: undefined },
+      ]);
+    });
+  });
+
+  describe("getBodyFatTimeSeries", () => {
+    it("should return body fat time series data", async () => {
+      const mockResponse = {
+        "body-fat": [
+          { dateTime: "2024-01-01", value: "15.5" },
+          { dateTime: "2024-01-02", value: "15.2" },
+          { dateTime: "2024-01-03", value: "14.8" },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getBodyFatTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", bodyFat: 15.5 },
+        { date: "2024-01-02", bodyFat: 15.2 },
+        { date: "2024-01-03", bodyFat: 14.8 },
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.fitbit.com/1/user/-/body/fat/date/2024-01-01/2024-01-03.json",
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        }
+      );
+    });
+
+    it("should handle invalid body fat values by converting to 0", async () => {
+      const mockResponse = {
+        "body-fat": [
+          { dateTime: "2024-01-01", value: "invalid" },
+          { dateTime: "2024-01-02", value: "" },
+          { dateTime: "2024-01-03", value: "14.8" },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getBodyFatTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", bodyFat: 0 },
+        { date: "2024-01-02", bodyFat: 0 },
+        { date: "2024-01-03", bodyFat: 14.8 },
+      ]);
+    });
+
+    it("should return empty array when no body fat data available", async () => {
+      const mockResponse = {
+        "body-fat": [],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getBodyFatTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([]);
+    });
+
+    it("should sort results by date", async () => {
+      const mockResponse = {
+        "body-fat": [
+          { dateTime: "2024-01-03", value: "14.8" },
+          { dateTime: "2024-01-01", value: "15.5" },
+          { dateTime: "2024-01-02", value: "15.2" },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const result = await fitbitAPI.getBodyFatTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", bodyFat: 15.5 },
+        { date: "2024-01-02", bodyFat: 15.2 },
+        { date: "2024-01-03", bodyFat: 14.8 },
+      ]);
+    });
+
+    it("should throw error when API call fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        statusText: "Unauthorized",
+      } as Response);
+
+      await expect(
+        fitbitAPI.getBodyFatTimeSeries("2024-01-01", "2024-01-03")
+      ).rejects.toThrow("Failed to fetch body fat time series: Unauthorized");
+    });
+  });
+
+  describe("getWeightAndBodyFatTimeSeries", () => {
+    it("should return combined weight and body fat data", async () => {
+      const mockWeightResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-01", value: "70.5" },
+          { dateTime: "2024-01-02", value: "70.2" },
+        ],
+      };
+
+      const mockBodyFatResponse = {
+        "body-fat": [
+          { dateTime: "2024-01-01", value: "15.5" },
+          { dateTime: "2024-01-02", value: "15.2" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockBodyFatResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getWeightAndBodyFatTimeSeries("2024-01-01", "2024-01-02");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", weight: 70.5, bodyFat: 15.5 },
+        { date: "2024-01-02", weight: 70.2, bodyFat: 15.2 },
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should handle missing weight data", async () => {
+      const mockWeightResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-01", value: "70.5" },
+        ],
+      };
+
+      const mockBodyFatResponse = {
+        "body-fat": [
+          { dateTime: "2024-01-01", value: "15.5" },
+          { dateTime: "2024-01-02", value: "15.2" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockBodyFatResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getWeightAndBodyFatTimeSeries("2024-01-01", "2024-01-02");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", weight: 70.5, bodyFat: 15.5 },
+        { date: "2024-01-02", weight: undefined, bodyFat: 15.2 },
+      ]);
+    });
+
+    it("should handle missing body fat data", async () => {
+      const mockWeightResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-01", value: "70.5" },
+          { dateTime: "2024-01-02", value: "70.2" },
+        ],
+      };
+
+      const mockBodyFatResponse = {
+        "body-fat": [
+          { dateTime: "2024-01-01", value: "15.5" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockBodyFatResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getWeightAndBodyFatTimeSeries("2024-01-01", "2024-01-02");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", weight: 70.5, bodyFat: 15.5 },
+        { date: "2024-01-02", weight: 70.2, bodyFat: undefined },
+      ]);
+    });
+
+    it("should handle empty data", async () => {
+      const mockWeightResponse = {
+        "body-weight": [],
+      };
+
+      const mockBodyFatResponse = {
+        "body-fat": [],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockBodyFatResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getWeightAndBodyFatTimeSeries("2024-01-01", "2024-01-02");
+
+      expect(result).toEqual([]);
+    });
+
+    it("should sort results by date", async () => {
+      const mockWeightResponse = {
+        "body-weight": [
+          { dateTime: "2024-01-03", value: "69.8" },
+          { dateTime: "2024-01-01", value: "70.5" },
+        ],
+      };
+
+      const mockBodyFatResponse = {
+        "body-fat": [
+          { dateTime: "2024-01-02", value: "15.2" },
+          { dateTime: "2024-01-01", value: "15.5" },
+        ],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockWeightResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockBodyFatResponse,
+        } as Response);
+
+      const result = await fitbitAPI.getWeightAndBodyFatTimeSeries("2024-01-01", "2024-01-03");
+
+      expect(result).toEqual([
+        { date: "2024-01-01", weight: 70.5, bodyFat: 15.5 },
+        { date: "2024-01-02", weight: undefined, bodyFat: 15.2 },
+        { date: "2024-01-03", weight: 69.8, bodyFat: undefined },
+      ]);
+    });
+  });
 });
