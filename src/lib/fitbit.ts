@@ -27,6 +27,20 @@ interface FitbitWeightData {
   }>;
 }
 
+interface FitbitTimeSeriesData {
+  "activities-calories": Array<{
+    dateTime: string;
+    value: string;
+  }>;
+}
+
+interface FitbitNutritionTimeSeriesData {
+  "foods-log-caloriesIn": Array<{
+    dateTime: string;
+    value: string;
+  }>;
+}
+
 export class FitbitAPI {
   private accessToken: string;
 
@@ -99,5 +113,66 @@ export class FitbitAPI {
     }
     
     return 0;
+  }
+
+  async getCaloriesTimeSeries(startDate: string, endDate: string): Promise<Array<{ date: string; caloriesOut: number; caloriesIn: number }>> {
+    const [activitiesResponse, nutritionResponse] = await Promise.all([
+      fetch(
+        `https://api.fitbit.com/1/user/-/activities/calories/date/${startDate}/${endDate}.json`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        }
+      ),
+      fetch(
+        `https://api.fitbit.com/1/user/-/foods/log/caloriesIn/date/${startDate}/${endDate}.json`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        }
+      )
+    ]);
+
+    if (!activitiesResponse.ok) {
+      throw new Error(`Failed to fetch activities time series: ${activitiesResponse.statusText}`);
+    }
+
+    if (!nutritionResponse.ok) {
+      throw new Error(`Failed to fetch nutrition time series: ${nutritionResponse.statusText}`);
+    }
+
+    const [activitiesData, nutritionData] = await Promise.all([
+      activitiesResponse.json() as Promise<FitbitTimeSeriesData>,
+      nutritionResponse.json() as Promise<FitbitNutritionTimeSeriesData>
+    ]);
+
+    const activitiesMap = new Map(
+      activitiesData["activities-calories"].map(item => [
+        item.dateTime,
+        parseInt(item.value) || 0
+      ])
+    );
+
+    const nutritionMap = new Map(
+      nutritionData["foods-log-caloriesIn"].map(item => [
+        item.dateTime,
+        parseInt(item.value) || 0
+      ])
+    );
+
+    const allDates = new Set([
+      ...activitiesData["activities-calories"].map(item => item.dateTime),
+      ...nutritionData["foods-log-caloriesIn"].map(item => item.dateTime)
+    ]);
+
+    return Array.from(allDates)
+      .sort()
+      .map(date => ({
+        date,
+        caloriesOut: activitiesMap.get(date) || 0,
+        caloriesIn: nutritionMap.get(date) || 0
+      }));
   }
 }
