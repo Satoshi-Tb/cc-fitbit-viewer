@@ -34,6 +34,7 @@ export interface CalorieData {
   date: string;
   caloriesOut: number;
   caloriesIn: number;
+  weight?: number;
 }
 
 export interface FitbitTimeSeriesItem {

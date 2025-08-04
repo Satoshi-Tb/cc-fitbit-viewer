@@ -26,7 +26,7 @@ app.get("/", async (c) => {
     const fitbitAPI = new FitbitAPI();
     const { startDate, endDate } = getDateRange(period, endDateParam || undefined);
     
-    const calorieData = await fitbitAPI.getCaloriesTimeSeries(startDate, endDate);
+    const calorieData = await fitbitAPI.getCaloriesAndWeightTimeSeries(startDate, endDate);
 
     const response: ApiResponse<CalorieData[]> = {
       data: calorieData,
