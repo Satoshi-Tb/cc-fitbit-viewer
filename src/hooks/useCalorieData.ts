@@ -3,10 +3,15 @@
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import { CalorieData, ApiResponse } from '@/types';
+import { useAtom } from 'jotai';
+import { baseDateAtom } from '@/store/atoms';
 
 export function useCalorieData(period: 'week' | 'month') {
+  const [baseDate] = useAtom(baseDateAtom);
+  const dateString = baseDate.toISOString().split('T')[0];
+  
   const { data, error, isLoading, mutate } = useSWR<ApiResponse<CalorieData[]>>(
-    `/api/fitbit/calories?period=${period}`,
+    `/api/fitbit/calories?period=${period}&baseDate=${dateString}`,
     fetcher,
     {
       refreshInterval: 300000, // 5分間隔で自動更新

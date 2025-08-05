@@ -8,11 +8,12 @@ app.get("/", async (c) => {
   try {
     const { searchParams } = new URL(c.req.url);
     const period = searchParams.get("period") || "1m";
+    const baseDateParam = searchParams.get("baseDate");
     
     const fitbit = new FitbitAPI();
     
-    const endDate = new Date();
-    const startDate = new Date();
+    const endDate = baseDateParam ? new Date(baseDateParam) : new Date();
+    const startDate = new Date(endDate);
     
     switch (period) {
       case "1w":
