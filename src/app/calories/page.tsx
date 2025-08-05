@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Navigation } from "@/components/Navigation";
 import CalorieChart from "@/components/CalorieChart";
 import WeightTrendChart from "@/components/WeightTrendChart";
 import PeriodSelector from "@/components/PeriodSelector";
@@ -47,22 +47,7 @@ export default function CaloriesPage() {
     return (
       <div className="min-h-screen p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6">
-            <nav className="flex gap-4">
-              <Link
-                href="/"
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                ダッシュボード
-              </Link>
-              <Link
-                href="/calories"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                トレンド分析
-              </Link>
-            </nav>
-          </div>
+          <Navigation />
           <h1 className="text-3xl font-bold mb-6">トレンド分析</h1>
           <ErrorBoundary
             error={currentError}
@@ -78,22 +63,7 @@ export default function CaloriesPage() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <nav className="flex gap-4">
-            <Link
-              href="/"
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              ダッシュボード
-            </Link>
-            <Link
-              href="/calories"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              トレンド分析
-            </Link>
-          </nav>
-        </div>
+        <Navigation />
         <h1 className="text-3xl font-bold mb-6">トレンド分析</h1>
 
         <div className="mb-6">
