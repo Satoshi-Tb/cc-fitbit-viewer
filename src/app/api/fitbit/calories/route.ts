@@ -21,10 +21,11 @@ function getDateRange(period: 'week' | 'month', endDate?: string): { startDate: 
 app.get("/", async (c) => {
   try {
     const period = (c.req.query('period') as 'week' | 'month') || 'week';
+    const baseDateParam = c.req.query('baseDate');
     const endDateParam = c.req.query('endDate');
 
     const fitbitAPI = new FitbitAPI();
-    const { startDate, endDate } = getDateRange(period, endDateParam || undefined);
+    const { startDate, endDate } = getDateRange(period, baseDateParam || endDateParam || undefined);
     
     const calorieData = await fitbitAPI.getCaloriesAndWeightTimeSeries(startDate, endDate);
 

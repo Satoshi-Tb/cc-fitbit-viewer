@@ -1,4 +1,6 @@
 import useSWR from 'swr';
+import { useAtom } from 'jotai';
+import { baseDateAtom } from '@/store/atoms';
 
 interface WeightData {
   date: string;
@@ -24,8 +26,11 @@ const fetcher = async (url: string): Promise<WeightResponse> => {
 };
 
 export function useWeightData(period: string) {
+  const [baseDate] = useAtom(baseDateAtom);
+  const dateString = baseDate.toISOString().split('T')[0];
+  
   const { data, error, isLoading, mutate } = useSWR<WeightResponse>(
-    `/api/fitbit/weight?period=${period}`,
+    `/api/fitbit/weight?period=${period}&baseDate=${dateString}`,
     fetcher,
     {
       refreshInterval: 0,

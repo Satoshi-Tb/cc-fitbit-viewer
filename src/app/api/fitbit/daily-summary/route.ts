@@ -8,13 +8,14 @@ const app = new Hono().basePath("/api/fitbit/daily-summary");
 app.get("/", async (c) => {
   try {
     const fitbitAPI = new FitbitAPI();
-    const today = new Date().toISOString().split("T")[0];
+    const dateParam = c.req.query("date");
+    const targetDate = dateParam || new Date().toISOString().split("T")[0];
 
     // Fetch real data from Fitbit API
     const [activityData, caloriesConsumed, weight] = await Promise.all([
-      fitbitAPI.getActivityData(today),
-      fitbitAPI.getNutritionData(today),
-      fitbitAPI.getWeightData(today),
+      fitbitAPI.getActivityData(targetDate),
+      fitbitAPI.getNutritionData(targetDate),
+      fitbitAPI.getWeightData(targetDate),
     ]);
 
     const dailySummary: DailySummary = {
@@ -22,7 +23,7 @@ app.get("/", async (c) => {
       caloriesConsumed,
       weight,
       steps: activityData.steps,
-      date: today,
+      date: targetDate,
     };
 
     const response: ApiResponse<DailySummary> = {
