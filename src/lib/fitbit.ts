@@ -55,6 +55,32 @@ interface FitbitNutritionTimeSeriesData {
   }>;
 }
 
+interface FitbitWeightLogResponse {
+  weightLog: {
+    logId: number;
+    weight: number;
+    date: string;
+    time: string;
+    source: string;
+  };
+}
+
+interface FitbitBodyFatLogResponse {
+  fatLog: {
+    logId: number;
+    fat: number;
+    date: string;
+    time: string;
+    source: string;
+  };
+}
+
+interface CSVWeightData {
+  date: string;
+  weight: number;
+  bodyFat: number;
+}
+
 export class FitbitAPI {
   private accessToken: string;
 
@@ -276,5 +302,141 @@ export class FitbitAPI {
         weight: weightMap.get(date),
         bodyFat: bodyFatMap.get(date)
       }));
+  }
+
+  async logWeight(weight: number, date: string): Promise<FitbitWeightLogResponse> {
+    const response = await fetch(
+      "https://api.fitbit.com/1/user/-/body/log/weight.json",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          weight: weight.toString(),
+          date: date,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to log weight: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async logBodyFat(fat: number, date: string): Promise<FitbitBodyFatLogResponse> {
+    const response = await fetch(
+      "https://api.fitbit.com/1/user/-/body/log/fat.json",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          fat: fat.toString(),
+          date: date,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to log body fat: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  parseCSVData(csvContent: string): CSVWeightData[] {
+    const lines = csvContent.trim().split('\n');
+    
+    if (lines.length < 2) {
+      throw new Error('CSV file must contain at least a header and one data row');
+    }
+
+    const header = lines[0];
+    const expectedHeaders = ['日付', '体重(kg)', '体脂肪率(%)'];
+    
+    if (!expectedHeaders.every(h => header.includes(h))) {
+      throw new Error('Invalid CSV format. Expected headers: 日付, 体重(kg), 体脂肪率(%)');
+    }
+
+    const dataLines = lines.slice(1);
+    const parsedData: CSVWeightData[] = [];
+
+    for (let i = 0; i < dataLines.length; i++) {
+      const line = dataLines[i].trim();
+      if (!line) continue;
+
+      const columns = line.split(',');
+      if (columns.length !== 3) {
+        throw new Error(`Invalid CSV format at line ${i + 2}. Expected 3 columns, got ${columns.length}`);
+      }
+
+      const [dateStr, weightStr, bodyFatStr] = columns.map(col => col.trim());
+
+      // Parse date from YYYY/M/D format to YYYY-MM-DD format
+      const dateParts = dateStr.split('/');
+      if (dateParts.length !== 3) {
+        throw new Error(`Invalid date format at line ${i + 2}. Expected YYYY/M/D format`);
+      }
+
+      const year = dateParts[0];
+      const month = dateParts[1].padStart(2, '0');
+      const day = dateParts[2].padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
+      const weight = parseFloat(weightStr);
+      const bodyFat = parseFloat(bodyFatStr);
+
+      if (isNaN(weight) || weight <= 0) {
+        throw new Error(`Invalid weight value at line ${i + 2}: ${weightStr}`);
+      }
+
+      if (isNaN(bodyFat) || bodyFat <= 0) {
+        throw new Error(`Invalid body fat value at line ${i + 2}: ${bodyFatStr}`);
+      }
+
+      parsedData.push({
+        date: formattedDate,
+        weight,
+        bodyFat
+      });
+    }
+
+    // Remove duplicates (keep the last entry for each date)
+    const uniqueData = new Map<string, CSVWeightData>();
+    parsedData.forEach(data => {
+      uniqueData.set(data.date, data);
+    });
+
+    return Array.from(uniqueData.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async importCSVData(csvData: CSVWeightData[]): Promise<{ success: number; failed: number; errors: string[] }> {
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as string[]
+    };
+
+    for (const data of csvData) {
+      try {
+        await Promise.all([
+          this.logWeight(data.weight, data.date),
+          this.logBodyFat(data.bodyFat, data.date)
+        ]);
+        results.success++;
+      } catch (error) {
+        results.failed++;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        results.errors.push(`${data.date}: ${errorMessage}`);
+      }
+    }
+
+    return results;
   }
 }
