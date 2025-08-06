@@ -11,7 +11,6 @@ import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { FoodLogList } from "@/components/FoodLogList";
 import { FoodLogModal } from "@/components/FoodLogModal";
-import { DateSelector } from "@/components/DateSelector";
 import { useCalorieData } from "@/hooks/useCalorieData";
 import { useWeightData } from "@/hooks/useWeightData";
 import { DailyFoodLog } from "@/lib/fitbit";
@@ -148,14 +147,10 @@ export default function CaloriesPage() {
                 </button>
               </div>
 
-              {calorieSubTab === "overview" ? (
-                <PeriodSelector
-                  period={caloriePeriod}
-                  onPeriodChange={setCaloriePeriod}
-                />
-              ) : (
-                <DateSelector />
-              )}
+              <PeriodSelector
+                period={caloriePeriod}
+                onPeriodChange={setCaloriePeriod}
+              />
             </div>
           )}
 
