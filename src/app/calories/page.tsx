@@ -95,7 +95,7 @@ export default function CaloriesPage() {
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
-              disabled={true} // 外部公開のため、いったん取り込み機能は無効化
+              disabled={process.env.NODE_ENV === "development"} // 外部公開のため、開発環境のみ取り込み機能を有効
             >
               CSV取り込み
             </button>
