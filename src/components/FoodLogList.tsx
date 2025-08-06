@@ -4,7 +4,8 @@ import { useFoodLogData } from '@/hooks/useFoodLogData';
 import { DailyFoodLog } from '@/lib/fitbit';
 
 interface FoodLogListProps {
-  selectedDate: string;
+  baseDate: Date;
+  period: 'week' | 'month';
   onShowDetails: (foodLog: DailyFoodLog) => void;
 }
 
@@ -73,10 +74,21 @@ function FoodLogRow({ date, onShowDetails }: FoodLogRowProps) {
   );
 }
 
-export function FoodLogList({ selectedDate, onShowDetails }: FoodLogListProps) {
-  // For now, we'll show only the selected date
-  // Later we could extend this to show multiple dates
-  const dates = [selectedDate];
+function getDateRange(period: 'week' | 'month', baseDate: Date): string[] {
+  const daysToGet = period === 'week' ? 7 : 30;
+  const dates: string[] = [];
+  
+  for (let i = 0; i < daysToGet; i++) {
+    const date = new Date(baseDate);
+    date.setDate(date.getDate() - i); // Go backwards from base date
+    dates.push(date.toISOString().split('T')[0]);
+  }
+  
+  return dates; // Already in descending order (newest first)
+}
+
+export function FoodLogList({ baseDate, period, onShowDetails }: FoodLogListProps) {
+  const dates = getDateRange(period, baseDate);
 
   return (
     <div className="space-y-2">

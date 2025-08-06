@@ -280,10 +280,11 @@ export default function CaloriesPage() {
                   ) : (
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 mb-4">
-                        選択日の食品ログ
+                        食品ログ一覧 ({caloriePeriod === 'week' ? '1週間' : '1ヶ月'})
                       </h3>
                       <FoodLogList
-                        selectedDate={baseDate.toISOString().split('T')[0]}
+                        baseDate={baseDate}
+                        period={caloriePeriod}
                         onShowDetails={handleShowFoodDetails}
                       />
                     </div>
