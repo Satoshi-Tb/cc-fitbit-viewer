@@ -9,15 +9,24 @@ import ExtendedPeriodSelector from "@/components/ExtendedPeriodSelector";
 import CSVImport from "@/components/CSVImport";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { FoodLogList } from "@/components/FoodLogList";
+import { FoodLogModal } from "@/components/FoodLogModal";
 import { useCalorieData } from "@/hooks/useCalorieData";
 import { useWeightData } from "@/hooks/useWeightData";
+import { DailyFoodLog } from "@/lib/fitbit";
+import { useAtom } from 'jotai';
+import { baseDateAtom } from '@/store/atoms';
 
 export default function CaloriesPage() {
   const [activeTab, setActiveTab] = useState<"calories" | "weight" | "import">(
     "calories"
   );
+  const [calorieSubTab, setCalorieSubTab] = useState<"overview" | "food-details">("overview");
   const [caloriePeriod, setCaloriePeriod] = useState<"week" | "month">("week");
   const [weightPeriod, setWeightPeriod] = useState<string>("1m");
+  const [selectedFoodLog, setSelectedFoodLog] = useState<DailyFoodLog | null>(null);
+  const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
+  const [baseDate] = useAtom(baseDateAtom);
 
   const {
     data: calorieData,
@@ -37,6 +46,16 @@ export default function CaloriesPage() {
       // Refresh weight data after successful import
       weightRetry();
     }
+  };
+
+  const handleShowFoodDetails = (foodLog: DailyFoodLog) => {
+    setSelectedFoodLog(foodLog);
+    setIsFoodModalOpen(true);
+  };
+
+  const handleCloseFoodModal = () => {
+    setIsFoodModalOpen(false);
+    setSelectedFoodLog(null);
   };
 
   const currentError = activeTab === "calories" ? calorieError : weightError;
@@ -103,19 +122,44 @@ export default function CaloriesPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6">
-          {activeTab !== "import" && (
+          {activeTab === "calories" && (
             <div className="mb-6">
-              {activeTab === "calories" ? (
-                <PeriodSelector
-                  period={caloriePeriod}
-                  onPeriodChange={setCaloriePeriod}
-                />
-              ) : (
-                <ExtendedPeriodSelector
-                  period={weightPeriod}
-                  onPeriodChange={setWeightPeriod}
-                />
-              )}
+              <div className="flex gap-4 border-b border-gray-200 mb-4">
+                <button
+                  onClick={() => setCalorieSubTab("overview")}
+                  className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    calorieSubTab === "overview"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  概要
+                </button>
+                <button
+                  onClick={() => setCalorieSubTab("food-details")}
+                  className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    calorieSubTab === "food-details"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  食品詳細
+                </button>
+              </div>
+
+              <PeriodSelector
+                period={caloriePeriod}
+                onPeriodChange={setCaloriePeriod}
+              />
+            </div>
+          )}
+
+          {activeTab !== "import" && activeTab !== "calories" && (
+            <div className="mb-6">
+              <ExtendedPeriodSelector
+                period={weightPeriod}
+                onPeriodChange={setWeightPeriod}
+              />
             </div>
           )}
 
@@ -132,97 +176,112 @@ export default function CaloriesPage() {
             <div>
               {activeTab === "calories" ? (
                 <div>
-                  <CalorieChart data={calorieData} period={caloriePeriod} />
+                  {calorieSubTab === "overview" ? (
+                    <div>
+                      <CalorieChart data={calorieData} period={caloriePeriod} />
 
-                  {calorieData.length > 0 && (
-                    <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="text-sm font-medium text-gray-600 mb-2">
-                          平均消費カロリー
-                        </h3>
-                        <p className="text-2xl font-bold text-red-600">
-                          {(() => {
-                            const validData = calorieData.filter(
-                              (item) => item.caloriesOut > 0
-                            );
-                            return validData.length > 0
-                              ? Math.round(
-                                  validData.reduce(
-                                    (sum, item) => sum + item.caloriesOut,
-                                    0
-                                  ) / validData.length
-                                ).toLocaleString()
-                              : "0";
-                          })()}{" "}
-                          kcal
-                        </p>
-                      </div>
+                      {calorieData.length > 0 && (
+                        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h3 className="text-sm font-medium text-gray-600 mb-2">
+                              平均消費カロリー
+                            </h3>
+                            <p className="text-2xl font-bold text-red-600">
+                              {(() => {
+                                const validData = calorieData.filter(
+                                  (item) => item.caloriesOut > 0
+                                );
+                                return validData.length > 0
+                                  ? Math.round(
+                                      validData.reduce(
+                                        (sum, item) => sum + item.caloriesOut,
+                                        0
+                                      ) / validData.length
+                                    ).toLocaleString()
+                                  : "0";
+                              })()}{" "}
+                              kcal
+                            </p>
+                          </div>
 
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="text-sm font-medium text-gray-600 mb-2">
-                          平均摂取カロリー
-                        </h3>
-                        <p className="text-2xl font-bold text-blue-600">
-                          {(() => {
-                            const validData = calorieData.filter(
-                              (item) => item.caloriesIn > 0
-                            );
-                            return validData.length > 0
-                              ? Math.round(
-                                  validData.reduce(
-                                    (sum, item) => sum + item.caloriesIn,
-                                    0
-                                  ) / validData.length
-                                ).toLocaleString()
-                              : "0";
-                          })()}{" "}
-                          kcal
-                        </p>
-                      </div>
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h3 className="text-sm font-medium text-gray-600 mb-2">
+                              平均摂取カロリー
+                            </h3>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {(() => {
+                                const validData = calorieData.filter(
+                                  (item) => item.caloriesIn > 0
+                                );
+                                return validData.length > 0
+                                  ? Math.round(
+                                      validData.reduce(
+                                        (sum, item) => sum + item.caloriesIn,
+                                        0
+                                      ) / validData.length
+                                    ).toLocaleString()
+                                  : "0";
+                              })()}{" "}
+                              kcal
+                            </p>
+                          </div>
 
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="text-sm font-medium text-gray-600 mb-2">
-                          平均カロリー差
-                        </h3>
-                        <p
-                          className={`text-2xl font-bold ${(() => {
-                            const validData = calorieData.filter(
-                              (item) =>
-                                item.caloriesOut > 0 && item.caloriesIn > 0
-                            );
-                            const avgDiff =
-                              validData.length > 0
-                                ? validData.reduce(
-                                    (sum, item) =>
-                                      sum +
-                                      (item.caloriesOut - item.caloriesIn),
-                                    0
-                                  ) / validData.length
-                                : 0;
-                            return avgDiff > 0
-                              ? "text-green-600"
-                              : "text-orange-600";
-                          })()}`}
-                        >
-                          {(() => {
-                            const validData = calorieData.filter(
-                              (item) =>
-                                item.caloriesOut > 0 && item.caloriesIn > 0
-                            );
-                            return validData.length > 0
-                              ? Math.round(
-                                  validData.reduce(
-                                    (sum, item) =>
-                                      sum +
-                                      (item.caloriesOut - item.caloriesIn),
-                                    0
-                                  ) / validData.length
-                                ).toLocaleString()
-                              : "0";
-                          })()}{" "}
-                          kcal
-                        </p>
-                      </div>
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h3 className="text-sm font-medium text-gray-600 mb-2">
+                              平均カロリー差
+                            </h3>
+                            <p
+                              className={`text-2xl font-bold ${(() => {
+                                const validData = calorieData.filter(
+                                  (item) =>
+                                    item.caloriesOut > 0 && item.caloriesIn > 0
+                                );
+                                const avgDiff =
+                                  validData.length > 0
+                                    ? validData.reduce(
+                                        (sum, item) =>
+                                          sum +
+                                          (item.caloriesOut - item.caloriesIn),
+                                        0
+                                      ) / validData.length
+                                    : 0;
+                                return avgDiff > 0
+                                  ? "text-green-600"
+                                  : "text-orange-600";
+                              })()}`}
+                            >
+                              {(() => {
+                                const validData = calorieData.filter(
+                                  (item) =>
+                                    item.caloriesOut > 0 && item.caloriesIn > 0
+                                );
+                                return validData.length > 0
+                                  ? Math.round(
+                                      validData.reduce(
+                                        (sum, item) =>
+                                          sum +
+                                          (item.caloriesOut - item.caloriesIn),
+                                        0
+                                      ) / validData.length
+                                    ).toLocaleString()
+                                  : "0";
+                              })()}{" "}
+                              kcal
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">
+                        食品ログ一覧 ({caloriePeriod === 'week' ? '1週間' : '1ヶ月'})
+                      </h3>
+                      <FoodLogList
+                        baseDate={baseDate}
+                        period={caloriePeriod}
+                        onShowDetails={handleShowFoodDetails}
+                      />
                     </div>
                   )}
                 </div>
@@ -232,6 +291,13 @@ export default function CaloriesPage() {
             </div>
           )}
         </div>
+
+        {/* Food Log Modal */}
+        <FoodLogModal
+          isOpen={isFoodModalOpen}
+          onClose={handleCloseFoodModal}
+          foodLog={selectedFoodLog}
+        />
       </div>
     </div>
   );
