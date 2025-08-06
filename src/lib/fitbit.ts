@@ -83,24 +83,37 @@ interface CSVWeightData {
 
 interface FitbitFoodLogData {
   foods: Array<{
-    isFavorite: boolean;
+    is_favorite: boolean;
     logDate: string;
     logId: number;
-    loggedFood: {
-      accessLevel: string;
+    logged_food: {
+      access_level: string;
       amount: number;
-      brand: string;
+      brand?: string;
       calories: number;
       foodId: number;
-      mealTypeId: number;
+      locale?: string;
+      meal_type_id: number;
       name: string;
       unit: {
         id: number;
         name: string;
         plural: string;
       };
+      units?: number[];
+    };
+    nutritionalValues?: {
+      calories: number;
+      carbs: number;
+      fat: number;
+      fiber: number;
+      protein: number;
+      sodium: number;
     };
   }>;
+  goals?: {
+    calories: number;
+  };
   summary: {
     calories: number;
     carbs: number;
@@ -562,18 +575,18 @@ export class FitbitAPI {
     }
 
     const data: FitbitFoodLogData = await response.json();
-    console.log("Fetched food log data:", data);
 
-    // Convert food entries to our format
-    const entries: FoodLogEntry[] = data.foods
+    // Convert food entries to our format with safety checks
+    const entries: FoodLogEntry[] = (data.foods || [])
+      .filter((food) => food && food.logged_food) // Safety check for undefined objects
       .map((food) => ({
         logId: food.logId,
-        mealTypeId: food.loggedFood.mealTypeId,
-        foodName: food.loggedFood.name,
-        calories: food.loggedFood.calories,
-        amount: food.loggedFood.amount,
-        unit: food.loggedFood.unit.name,
-        brand: food.loggedFood.brand || undefined,
+        mealTypeId: food.logged_food.meal_type_id,
+        foodName: food.logged_food.name,
+        calories: food.logged_food.calories,
+        amount: food.logged_food.amount,
+        unit: food.logged_food.unit?.name || "unit",
+        brand: food.logged_food.brand || undefined,
       }))
       .sort((a, b) => {
         // Sort by mealTypeId first, then by logId
@@ -589,8 +602,8 @@ export class FitbitAPI {
 
     return {
       date,
-      totalCalories: data.summary.calories,
-      foodSummary,
+      totalCalories: data.summary?.calories || 0,
+      foodSummary: foodSummary || "食品データなし",
       entries,
     };
   }
@@ -598,10 +611,11 @@ export class FitbitAPI {
   getMealTypeLabel(mealTypeId: number): string {
     const mealTypes: Record<number, string> = {
       1: "朝食",
-      2: "朝のスナック",
+      2: "モーニング・スナック",
       3: "昼食",
-      4: "午後のスナック",
+      4: "午後のおやつ",
       5: "夕食",
+      6: "夕方のおやつ",
       7: "いつでも",
     };
     return mealTypes[mealTypeId] || "その他";
